@@ -20,16 +20,18 @@ import java.util.*;
 import static com.orm.SugarConfig.getDatabaseVersion;
 import static com.orm.SugarConfig.getDebugEnabled;
 
-public class SugarDb extends SQLiteOpenHelper {
+public class SugarDb extends SQLiteOpenHelper
+{
     private Context context;
 
-    public SugarDb(Context context) {
+    public SugarDb(Context context)
+    {
         super(context, SugarConfig.getDatabaseName(context), new SugarCursorFactory(getDebugEnabled(context)), getDatabaseVersion(context));
         this.context = context;
-
     }
 
-    private <T extends SugarRecord<?>> List<T> getDomainClasses(Context context) {
+    private <T extends SugarRecord<?>> List<T> getDomainClasses(Context context)
+    {
         List<T> domainClasses = new ArrayList<T>();
         try {
             Enumeration<?> allClasses = getAllClasses(context);
@@ -53,7 +55,8 @@ public class SugarDb extends SQLiteOpenHelper {
     }
 
     @SuppressWarnings("unchecked")
-    private <T extends SugarRecord<?>> T getDomainClass(String className, Context context) {
+    private <T extends SugarRecord<?>> T getDomainClass(String className, Context context)
+    {
         Log.i("Sugar", "domain class");
         Class<?> discoveredClass = null;
         try {
@@ -84,30 +87,35 @@ public class SugarDb extends SQLiteOpenHelper {
 
     }
 
-    private Enumeration<?> getAllClasses(Context context) throws PackageManager.NameNotFoundException, IOException {
+    private Enumeration<?> getAllClasses(Context context) throws PackageManager.NameNotFoundException, IOException
+    {
         String path = getSourcePath(context);
         DexFile dexfile = new DexFile(path);
         return dexfile.entries();
     }
 
-    private String getSourcePath(Context context) throws PackageManager.NameNotFoundException {
+    private String getSourcePath(Context context) throws PackageManager.NameNotFoundException
+    {
         return context.getPackageManager().getApplicationInfo(context.getPackageName(), 0).sourceDir;
     }
 
     @Override
-    public void onCreate(SQLiteDatabase sqLiteDatabase) {
+    public void onCreate(SQLiteDatabase sqLiteDatabase)
+    {
         Log.i("Sugar", "on create");
         createDatabase(sqLiteDatabase);
     }
 
-    private <T extends SugarRecord<?>> void createDatabase(SQLiteDatabase sqLiteDatabase) {
+    private <T extends SugarRecord<?>> void createDatabase(SQLiteDatabase sqLiteDatabase)
+    {
         List<T> domainClasses = getDomainClasses(context);
         for (T domain : domainClasses) {
             createTable(domain, sqLiteDatabase);
         }
     }
 
-    private <T extends SugarRecord<?>> void createTable(T table, SQLiteDatabase sqLiteDatabase) {
+    private <T extends SugarRecord<?>> void createTable(T table, SQLiteDatabase sqLiteDatabase)
+    {
         Log.i("Sugar", "create table");
         List<Field> fields = table.getTableFields();
         StringBuilder sb = new StringBuilder("CREATE TABLE ").append(table.getSqlName()).append(
@@ -134,7 +142,8 @@ public class SugarDb extends SQLiteOpenHelper {
     }
 
     @Override
-    public void onUpgrade(SQLiteDatabase sqLiteDatabase, int oldVersion, int newVersion) {
+    public void onUpgrade(SQLiteDatabase sqLiteDatabase, int oldVersion, int newVersion)
+    {
         Log.i("Sugar", "upgrading sugar");
         // check if some tables are to be created
         doUpgrade(sqLiteDatabase);
@@ -148,7 +157,8 @@ public class SugarDb extends SQLiteOpenHelper {
     /**
      * Create the tables that do not exist.
      */
-    private <T extends SugarRecord<?>> void doUpgrade(SQLiteDatabase sqLiteDatabase) {
+    private <T extends SugarRecord<?>> void doUpgrade(SQLiteDatabase sqLiteDatabase)
+    {
         List<T> domainClasses = getDomainClasses(context);
         for (T domain : domainClasses) {
             try {// we try to do a select, if fails then (?) there isn't the table
@@ -160,14 +170,16 @@ public class SugarDb extends SQLiteOpenHelper {
         }
     }
 
-    private <T extends SugarRecord<?>> void deleteTables(SQLiteDatabase sqLiteDatabase) {
+    private <T extends SugarRecord<?>> void deleteTables(SQLiteDatabase sqLiteDatabase)
+    {
         List<T> tables = getDomainClasses(this.context);
         for (T table : tables) {
             sqLiteDatabase.execSQL("DROP TABLE IF EXISTS " + table.getSqlName());
         }
     }
 
-    private boolean executeSugarUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+    private boolean executeSugarUpgrade(SQLiteDatabase db, int oldVersion, int newVersion)
+    {
 
         boolean isSuccess = false;
         try {
@@ -194,7 +206,8 @@ public class SugarDb extends SQLiteOpenHelper {
         return isSuccess;
     }
 
-    private void executeScript(SQLiteDatabase db, String file) {
+    private void executeScript(SQLiteDatabase db, String file)
+    {
         try {
             InputStream is = this.context.getAssets().open("sugar_upgrades/" + file);
             BufferedReader reader = new BufferedReader(new InputStreamReader(is));

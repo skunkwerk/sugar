@@ -18,8 +18,10 @@ import java.sql.Timestamp;
 import java.util.*;
 
 import static com.orm.SugarApp.getSugarContext;
+import com.orm.ORMProvider;
 
-public class SugarRecord<T>{
+public class SugarRecord<T>
+{
 
     @Ignore
     String tableName = getSqlName();
