@@ -160,15 +160,8 @@ public class ORMProvider extends ContentProvider
 			String groupBy = projection[1];
 			String orderBy = projection[2];
 			String limit = projection[3];
-			Log.d("in ORM","table:" + table);
-			Log.d("in ORM","selection:" + selection);
-			if (selectionArgs!=null)
-				Log.d("in ORM","selectionArgs:" + selectionArgs[0]);
-			else
-				Log.d("in ORM","selectionArgs: null");
 			//Passing null will return all columns
 			cursor = db.query(table, null, selection, selectionArgs, groupBy, null, orderBy, limit);
-			Log.d("in ORM cursor, got rows:", Long.toString(cursor.getCount()));
 			return cursor;
 		default:
 	         throw new IllegalArgumentException("Unknown URI " + uri);
@@ -181,19 +174,4 @@ public class ORMProvider extends ContentProvider
 		db.update(uri.getPathSegments().get(0), values, selection, selectionArgs);
 		return 0;
 	}
-	
-	//from client:
-	//getContentResolver().call(Provider.Constants.CONTENT_URI,
-    //Provider.SET_KEY_METHOD, "sekrit", null);
-	/*@Override
-	public Bundle call(String method, String table, Bundle args)
-	{
-	    if (EXTENDED_QUERY.equals(method) && args != null)
-	    {
-	      //db.query(distinct, table, columns, selection, selectionArgs, groupBy, having, orderBy, limit, cancellationSignal);
-	    }
-
-	    return(null);
-	}*/
-
 }
