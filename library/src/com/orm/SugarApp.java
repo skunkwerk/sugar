@@ -1,6 +1,7 @@
 package com.orm;
 
-public class SugarApp extends android.app.Application{
+public class SugarApp extends android.app.Application
+{
 
     private Database database;
     private static SugarApp sugarContext;

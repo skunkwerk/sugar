@@ -8,9 +8,12 @@ import java.util.List;
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.ContentUris;
+import android.content.Context;
 import android.content.UriMatcher;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Bundle;
+import android.util.Log;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.orm.Database;
@@ -24,7 +27,7 @@ public class ORMProvider extends ContentProvider
 	 */
 	
 	private SQLiteDatabase db;
-	static final String PROVIDER_NAME = "app.unifi.provider";
+	static final String PROVIDER_NAME = "com.orm.provider";
 	static final String URL = "content://" + PROVIDER_NAME + "/router";
 	static public final Uri CONTENT_URI = Uri.parse(URL);
 	
@@ -32,6 +35,8 @@ public class ORMProvider extends ContentProvider
 	static final int ROW = 2;
 	static final int RAW_QUERY = 3;
 	static final int EXEC_SQL = 4;
+	static final int EXTENDED_QUERY = 5;
+	//static final String EXTENDED_QUERY = "EXTENDED_QUERY";
 
 	static final UriMatcher uriMatcher;
 	static
@@ -39,6 +44,7 @@ public class ORMProvider extends ContentProvider
 	      uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
 	      uriMatcher.addURI(PROVIDER_NAME, "RAW_QUERY", RAW_QUERY);
 	      uriMatcher.addURI(PROVIDER_NAME, "EXEC_SQL", EXEC_SQL);
+	      uriMatcher.addURI(PROVIDER_NAME, "EXTENDED_QUERY", EXTENDED_QUERY);
 	      uriMatcher.addURI(PROVIDER_NAME, "*", TABLE);//only matches one segment
 	      uriMatcher.addURI(PROVIDER_NAME, "*/#", ROW);
 	}
@@ -48,7 +54,10 @@ public class ORMProvider extends ContentProvider
 	{
 		//The Android system calls onCreate() when it starts up the provider. 
 		//You should perform only fast-running initialization tasks in this method, and defer database creation and data loading until the provider actually receives a request for the data
-		db = getSugarContext().getDatabase().getDB();
+		//SugarApp app = new SugarApp();
+		Context context = getContext();
+		SugarDb sugarDb = new SugarDb(context);
+		db = sugarDb.getWritableDatabase();//nullpointer exception here!
 		return (db == null)? false:true;
 	}
 	
@@ -112,8 +121,10 @@ public class ORMProvider extends ContentProvider
 		//Return a content URI for the newly-inserted row
 		//getAsString returns the value or null if the value is missing or cannot be converted
 		String table = uri.getPathSegments().get(0);
-		db.insert(table, null, values);
-		return null;
+		long row_id = db.insert(table, null, values);
+		String url = "content://" + PROVIDER_NAME + "/" + table + "/" + Long.toString(row_id);
+    	Uri new_row_uri = Uri.parse(url);
+		return new_row_uri;
 	}
 
 	@Override
@@ -143,6 +154,22 @@ public class ORMProvider extends ContentProvider
 		case EXEC_SQL:
 			db.execSQL(selection, selectionArgs);//query, arguments
 			return null;
+		case EXTENDED_QUERY:
+			Log.d("in ORM","in extended query");
+			table = projection[0];
+			String groupBy = projection[1];
+			String orderBy = projection[2];
+			String limit = projection[3];
+			Log.d("in ORM","table:" + table);
+			Log.d("in ORM","selection:" + selection);
+			if (selectionArgs!=null)
+				Log.d("in ORM","selectionArgs:" + selectionArgs[0]);
+			else
+				Log.d("in ORM","selectionArgs: null");
+			//Passing null will return all columns
+			cursor = db.query(table, null, selection, selectionArgs, groupBy, null, orderBy, limit);
+			Log.d("in ORM cursor, got rows:", Long.toString(cursor.getCount()));
+			return cursor;
 		default:
 	         throw new IllegalArgumentException("Unknown URI " + uri);
 	    }
@@ -154,5 +181,19 @@ public class ORMProvider extends ContentProvider
 		db.update(uri.getPathSegments().get(0), values, selection, selectionArgs);
 		return 0;
 	}
+	
+	//from client:
+	//getContentResolver().call(Provider.Constants.CONTENT_URI,
+    //Provider.SET_KEY_METHOD, "sekrit", null);
+	/*@Override
+	public Bundle call(String method, String table, Bundle args)
+	{
+	    if (EXTENDED_QUERY.equals(method) && args != null)
+	    {
+	      //db.query(distinct, table, columns, selection, selectionArgs, groupBy, having, orderBy, limit, cancellationSignal);
+	    }
+
+	    return(null);
+	}*/
 
 }

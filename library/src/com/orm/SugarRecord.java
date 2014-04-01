@@ -1,5 +1,6 @@
 package com.orm;
 
+import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -8,27 +9,28 @@ import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.database.sqlite.SQLiteStatement;
 import android.net.Uri;
+import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import com.orm.dsl.Ignore;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.sql.Timestamp;
 import java.util.*;
 
 import static com.orm.SugarApp.getSugarContext;
-import com.orm.ORMProvider;
 
 public class SugarRecord<T>
 {
 
     @Ignore
     String tableName = getSqlName();
-	static ORMProvider db;
-	static String PROVIDER_NAME = "app.unifi.provider";
+	static ContentResolver db = getSugarContext().getContentResolver();
+	static String PROVIDER_NAME = "com.orm.provider";
 
     protected Long id = null;
 
@@ -88,7 +90,7 @@ public class SugarRecord<T>
 
     }*/
 
-    void save(ORMProvider orm)
+    void save(ContentResolver orm)
     {
         List<Field> columns = getTableFields();
         ContentValues values = new ContentValues(columns.size());
@@ -161,7 +163,7 @@ public class SugarRecord<T>
         if (id == null)
         {
             Uri new_row = orm.insert(uri, values);
-            id = Long.parseLong(uri.getPathSegments().get(1));
+            id = Long.parseLong(new_row.getPathSegments().get(1));
         }
         else
         	orm.update(uri, values, "ID = ?", new String[]{String.valueOf(id)});
@@ -176,7 +178,7 @@ public class SugarRecord<T>
 
     public static <T extends SugarRecord<?>> T findById(Class<T> type, Long id)
     {
-        List<T> list = find( type, "id=?", new String[]{String.valueOf(id)}, null, null, "1");
+        List<T> list = find(type, "id=?", new String[]{String.valueOf(id)}, null, null, "1");
         if (list.isEmpty()) return null;
         return list.get(0);
     }
@@ -205,21 +207,17 @@ public class SugarRecord<T>
                                                                     String whereClause, String[] whereArgs,
                                                                     String groupBy, String orderBy, String limit)
     {
-    	String url = "content://" + PROVIDER_NAME + "/RAW_SQL";
+    	String url = "content://" + PROVIDER_NAME + "/EXTENDED_QUERY";
     	Uri uri = Uri.parse(url);
-    	//is deprecated: buildQuery (String[] projectionIn, String selection, String[] selectionArgs, String groupBy, String having, String sortOrder, String limit)
-        Object args[] = whereArgs;
-    	String where_query = String.format(whereClause, args);
-    	SQLiteQueryBuilder builder = new SQLiteQueryBuilder();
-    	builder.setTables(getTableName(type));
-    	String query = builder.buildQuery(null, where_query, groupBy, null, orderBy, limit);
-        Cursor c = db.query(uri, null, query, null, null);
+    	String[] args = {getTableName(type), groupBy, orderBy, limit};
+        Cursor c = db.query(uri, args, whereClause, whereArgs, null);
         return new CursorIterator<T>(type, c);
     }
 
     public static <T extends SugarRecord<?>> List<T> find(Class<T> type,
                                                        String whereClause, String... whereArgs)
     {
+    	Log.d("in sugar", "find called");
         return find(type, whereClause, whereArgs, null, null, null);
     }
 
@@ -234,8 +232,9 @@ public class SugarRecord<T>
 
         try {
             while (c.moveToNext()) {
-                entity = type.getDeclaredConstructor().newInstance();
-                entity.inflate(c);
+                //entity = type.getDeclaredConstructor().newInstance();
+            	entity = type.getDeclaredConstructor(new Class[] {android.content.Context.class}).newInstance(getSugarContext());
+            	entity.inflate(c);
                 toRet.add(entity);
             }
         } catch (Exception e) {
@@ -258,21 +257,42 @@ public class SugarRecord<T>
                                                        String whereClause, String[] whereArgs,
                                                        String groupBy, String orderBy, String limit)
     {
-    	String url = "content://" + PROVIDER_NAME + "/RAW_SQL";
+    	String url = "content://" + PROVIDER_NAME + "/EXTENDED_QUERY";
     	Uri uri = Uri.parse(url);
     	//is deprecated: buildQuery (String[] projectionIn, String selection, String[] selectionArgs, String groupBy, String having, String sortOrder, String limit)
-        Object args[] = whereArgs;
+        /*Object args[] = whereArgs;
     	String where_query = String.format(whereClause, args);
     	SQLiteQueryBuilder builder = new SQLiteQueryBuilder();
     	builder.setTables(getTableName(type));
+    	String query = builder.buildQuery(null, whereClause, whereArgs, groupBy, null, orderBy, limit);
     	String query = builder.buildQuery(null, where_query, groupBy, null, orderBy, limit);
-        
+    	Cursor c = db.query(uri, null, query, null, null);//null pointer exception here*/
+    	/*Bundle b = new Bundle();
+    	b.putString("whereClause", whereClause);
+    	b.putStringArray("whereArgs", whereArgs);
+        b.putString("groupBy", groupBy);
+        b.putString("orderBy", orderBy);
+        b.putString("limit", limit);
+        Bundle ret = db.call("EXTENDED_QUERY", getTableName(type), b);
+        //how do i put a cursor in the return bundle?  don't want to do this logic inside the call method itself*/
+    	String[] args = {getTableName(type), groupBy, orderBy, limit};
+    	/*Log.d("null testing", uri.toString());
+    	Log.d("null testing", args.toString());
+    	Log.d("null testing", whereClause.toString());
+    	Log.d("null testing", whereArgs.toString());*/
+    	
         T entity;
         List<T> toRet = new ArrayList<T>();
-        Cursor c = db.query(uri, null, query, null, null);
+        Log.d("in find", "db.query()");
+        Cursor c = db.query(uri, args, whereClause, whereArgs, null);
         try {
-            while (c.moveToNext()) {
-                entity = type.getDeclaredConstructor().newInstance();
+            while (c.moveToNext())
+            {
+            	Log.d("in find", "got result row from query");
+                //entity = type.getDeclaredConstructor().newInstance();//error here
+            	//The parameterTypes parameter is an array of Class objects that identify the constructor's formal parameter types, in declared order.
+                entity = type.getDeclaredConstructor(new Class[] {android.content.Context.class}).newInstance(getSugarContext());
+                Log.d("constructor","got constructor & new instance");
                 entity.inflate(c);
                 toRet.add(entity);
             }
@@ -494,7 +514,8 @@ public class SugarRecord<T>
             }
 
             try {
-                entity = type.getDeclaredConstructor().newInstance();
+                //entity = type.getDeclaredConstructor().newInstance();
+            	entity = type.getDeclaredConstructor(new Class[] {android.content.Context.class}).newInstance(getSugarContext());
                 entity.inflate(cursor);
             } catch (Exception e) {
                 e.printStackTrace();
