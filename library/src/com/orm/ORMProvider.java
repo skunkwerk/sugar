@@ -1,5 +1,7 @@
 package com.orm;
 
+import static com.orm.SugarApp.getSugarContext;
+
 import java.util.Iterator;
 import java.util.List;
 
@@ -21,27 +23,33 @@ public class ORMProvider extends ContentProvider
 	 * All of these methods except onCreate() can be called by multiple threads at once, so they must be thread-safe
 	 */
 	
+	private SQLiteDatabase db;
+	static final String PROVIDER_NAME = "app.unifi.provider";
+	static final String URL = "content://" + PROVIDER_NAME + "/router";
+	static public final Uri CONTENT_URI = Uri.parse(URL);
+	
+	static final int TABLE = 1;
+	static final int ROW = 2;
+	static final int RAW_QUERY = 3;
+	static final int EXEC_SQL = 4;
+
+	static final UriMatcher uriMatcher;
+	static
+	{
+	      uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
+	      uriMatcher.addURI(PROVIDER_NAME, "RAW_QUERY", RAW_QUERY);
+	      uriMatcher.addURI(PROVIDER_NAME, "EXEC_SQL", EXEC_SQL);
+	      uriMatcher.addURI(PROVIDER_NAME, "*", TABLE);//only matches one segment
+	      uriMatcher.addURI(PROVIDER_NAME, "*/#", ROW);
+	}
+	
 	@Override
 	public boolean onCreate()
 	{
 		//The Android system calls onCreate() when it starts up the provider. 
 		//You should perform only fast-running initialization tasks in this method, and defer database creation and data loading until the provider actually receives a request for the data
-		return false;
-	}
-	
-	static final String PROVIDER_NAME = "app.unifi.provider";
-	static final String URL = "content://" + PROVIDER_NAME + "/router";
-	static public final Uri CONTENT_URI = Uri.parse(URL);
-	
-	static final int ROUTER = 1;
-	static final int ROUTER_ID = 2;
-	
-	static final UriMatcher uriMatcher;
-	static
-	{
-	      uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-	      uriMatcher.addURI(PROVIDER_NAME, "router", ROUTER);
-	      uriMatcher.addURI(PROVIDER_NAME, "router/#", ROUTER_ID);
+		db = getSugarContext().getDatabase().getDB();
+		return (db == null)? false:true;
 	}
 	
 	@Override
@@ -58,36 +66,41 @@ public class ORMProvider extends ContentProvider
 		//List<Router> search_results = Router.find(Router.class, "ssid = ?", "\"InfoScout\"");
 		// UnsupportedOperationException ()
 		int count = 0;
+		String table;
 		switch (uriMatcher.match(uri))
 		{
-	      case ROUTER:
-	    	 Router.deleteAll(Router.class);
+	      case TABLE:
+	    	 table = uri.getPathSegments().get(0);
+	    	 db.delete(table, selection, selectionArgs);
 	         break;
-	      case ROUTER_ID:
-	    	  String param = uri.getPathSegments().get(1);
-	    	  Long id = Long.parseLong(param);
-	    	  Router router = Router.findById(Router.class, id);
-	  		  router.delete();
-		}		
+	      case ROW:
+	    	  /*table = uri.getPathSegments().get(0);
+	    	  String row = uri.getPathSegments().get(1);
+		      db.delete(table, selection, selectionArgs);*/
+	    	  throw new UnsupportedOperationException( "Not Implemented");
+		}
 		return count;
 	}
 
 	@Override
 	public String getType(Uri uri)
 	{
+		String table;
 		//Return the MIME type corresponding to a content URI
 		switch (uriMatcher.match(uri))
 		{
 	      /**
-	       * Get all router records 
+	       * Get all table records 
 	       */
-	      case ROUTER:
-	         return "vnd.android.cursor.dir/vnd.net.akbars.unifi.router";
+	      case TABLE:
+	    	 table = uri.getPathSegments().get(0);
+	         return "vnd.android.cursor.dir/vnd.net.akbars.unifi." + table;
 	      /** 
 	       * Get a particular router
 	       */
-	      case ROUTER_ID:
-	         return "vnd.android.cursor.item/vnd.net.akbars.unifi.router";
+	      case ROW:
+	    	 table = uri.getPathSegments().get(0);
+	         return "vnd.android.cursor.item/vnd.net.akbars.unifi." + table;
 	      default:
 	         throw new IllegalArgumentException("Unsupported URI: " + uri);
 	    }
@@ -98,10 +111,8 @@ public class ORMProvider extends ContentProvider
 	{
 		//Return a content URI for the newly-inserted row
 		//getAsString returns the value or null if the value is missing or cannot be converted
-		String ssid = values.getAsString("ssid");
-		String bssid = values.getAsString("bssid");
-		Router new_router = new Router(getContext(), ssid, bssid);
-		new_router.save();
+		String table = uri.getPathSegments().get(0);
+		db.insert(table, null, values);
 		return null;
 	}
 
@@ -115,19 +126,23 @@ public class ORMProvider extends ContentProvider
 		 * sortOrder specifies the order in which rows appear in the returned Cursor
 		 */
 		Cursor cursor = null;
+		String table = null;
 		switch (uriMatcher.match(uri))
 		{
-	      case ROUTER:
-	    	  List<Router> routers = Router.find(Router.class, selection, selectionArgs);
-	    	  String[] whereArgs;
-	    	  Iterator<Router> it = Router.findAsIterator(Router.class, selection, selectionArgs);
-	    	  //cursor = Router.findAsCursor(Router.class, selection, selectionArgs);
+	      case TABLE:
+	    	  table = uri.getPathSegments().get(0);
+	    	  cursor = db.query(table,projection,selection,selectionArgs,null,null,sortOrder);
 	    	  return cursor;
-		case ROUTER_ID:
-	    	  String param = uri.getPathSegments().get(1);
-	    	  String[] params = {param};
-	    	  //cursor = Router.findAsCursor(Router.class, "WHERE id = ?", params);
+		case ROW:
+			  table = uri.getPathSegments().get(0);
+	    	  cursor = db.query(table,projection,selection,selectionArgs,null,null,sortOrder);
 	    	  return cursor;
+		case RAW_QUERY:
+			cursor = db.rawQuery(selection, selectionArgs);//query, arguments
+			return cursor;
+		case EXEC_SQL:
+			db.execSQL(selection, selectionArgs);//query, arguments
+			return null;
 		default:
 	         throw new IllegalArgumentException("Unknown URI " + uri);
 	    }
@@ -136,7 +151,7 @@ public class ORMProvider extends ContentProvider
 	@Override
 	public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs)
 	{
-		//UPDATE Router SET(key=value) WHERE column = ?, selectionArgs
+		db.update(uri.getPathSegments().get(0), values, selection, selectionArgs);
 		return 0;
 	}
 
