@@ -217,7 +217,6 @@ public class SugarRecord<T>
     public static <T extends SugarRecord<?>> List<T> find(Class<T> type,
                                                        String whereClause, String... whereArgs)
     {
-    	Log.d("in sugar", "find called");
         return find(type, whereClause, whereArgs, null, null, null);
     }
 
@@ -262,7 +261,6 @@ public class SugarRecord<T>
     	
         T entity;
         List<T> toRet = new ArrayList<T>();
-        Log.d("in find", "db.query()");
         Cursor c = db.query(uri, args, whereClause, whereArgs, null);
         try {
             while (c.moveToNext())

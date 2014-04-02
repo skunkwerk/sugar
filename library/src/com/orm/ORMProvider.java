@@ -36,7 +36,6 @@ public class ORMProvider extends ContentProvider
 	static final int RAW_QUERY = 3;
 	static final int EXEC_SQL = 4;
 	static final int EXTENDED_QUERY = 5;
-	//static final String EXTENDED_QUERY = "EXTENDED_QUERY";
 
 	static final UriMatcher uriMatcher;
 	static
@@ -155,7 +154,6 @@ public class ORMProvider extends ContentProvider
 			db.execSQL(selection, selectionArgs);//query, arguments
 			return null;
 		case EXTENDED_QUERY:
-			Log.d("in ORM","in extended query");
 			table = projection[0];
 			String groupBy = projection[1];
 			String orderBy = projection[2];
